@@ -10,7 +10,7 @@ import (
 	"github.com/martini-contrib/render"
 	"math/rand"
 	"time"
-	"ws_helpers"
+	wsh "ws_helpers"
 	"net/http"
 	"log"
 	"code.google.com/p/go-uuid/uuid"
@@ -35,14 +35,14 @@ func WSHandler(w http.ResponseWriter, r *http.Request, db *mgo.Database) {
 	}
 	ip:= ws.RemoteAddr()
 	message := new(Message)
-	client := ws_helpers.ClientConn{ws, ip, uuid.New(), 0, message}
-	ws_helpers.AddClient(client)
+	client := wsh.ClientConn{ws, ip, uuid.New(), 0, message}
+	wsh.AddClient(client)
 	
-	defer ws_helpers.BroadcastMessage(Message{"disconnect", client.Id})
-	defer ws_helpers.DeleteClient(client)
+	defer wsh.BroadcastMessage(Message{"disconnect", client.Id})
+	defer wsh.DeleteClient(client)
 	
 	for {
-		log.Println(len(ws_helpers.ActiveClients), ws_helpers.ActiveClients)
+		log.Println(len(wsh.ActiveClients), wsh.ActiveClients)
 		messageType, msg, err := ws.ReadMessage()
 		client.MessageType = messageType
 		if err != nil {
@@ -56,9 +56,11 @@ func WSHandler(w http.ResponseWriter, r *http.Request, db *mgo.Database) {
 		switch message.Type {
 		case "connect":
 			client.SendMessage(Message{"connect", client.Id})
-			ws_helpers.BroadcastMessage(Message{"new", client.Id})
-			for c, _ := range ws_helpers.ActiveClients{
-				client.SendMessage(Message{"new", c.Id})
+			wsh.BroadcastMessage(Message{"new", client.Id})
+			for c, _ := range wsh.ActiveClients{
+				if c.Id != client.Id {
+					client.SendMessage(Message{"new", c.Id})
+				}
 			}
 		default:
 			client.SendError("Unknown command")
